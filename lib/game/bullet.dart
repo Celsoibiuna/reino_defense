@@ -1,5 +1,7 @@
 import 'package:flame/components.dart';
 import 'dart:ui';
+import 'enemy.dart';
+import 'boss.dart';
 
 class Bullet extends RectangleComponent {
   Bullet()
@@ -14,7 +16,24 @@ class Bullet extends RectangleComponent {
 
     position.x += 250 * dt;
 
-    if (position.x > 800) {
+    final enemies = parent!.children.whereType<Enemy>();
+    final bosses = parent!.children.whereType<Boss>();
+
+    for (final enemy in enemies) {
+      if (toRect().overlaps(enemy.toRect())) {
+        enemy.hit();
+        removeFromParent();
+      }
+    }
+
+    for (final boss in bosses) {
+      if (toRect().overlaps(boss.toRect())) {
+        boss.hit();
+        removeFromParent();
+      }
+    }
+
+    if (position.x > 900) {
       removeFromParent();
     }
   }

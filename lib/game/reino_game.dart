@@ -4,6 +4,7 @@ import 'package:flame/events.dart';
 
 import 'enemy.dart';
 import 'tower.dart';
+import 'boss.dart';
 
 class ReinoGame extends FlameGame with TapCallbacks {
   double spawnTimer = 0;
@@ -11,13 +12,21 @@ class ReinoGame extends FlameGame with TapCallbacks {
   int moedas = 100;
   int vida = 10;
 
-  TextComponent? hud;
-  TextComponent? gameOverText;
+  int wave = 1;
+  int inimigosCriados = 0;
+  int inimigosWave = 5;
 
   bool acabou = false;
 
+  TextComponent? hud;
+  TextComponent? gameOverText;
+
   @override
   Future<void> onLoad() async {
+    iniciarJogo();
+  }
+
+  void iniciarJogo() {
     add(Tower()..position = Vector2(100, 280));
 
     hud = TextComponent(text: '', position: Vector2(20, 20));
@@ -33,16 +42,37 @@ class ReinoGame extends FlameGame with TapCallbacks {
 
     spawnTimer += dt;
 
-    if (spawnTimer > 2) {
+    if (spawnTimer > 1.5 && inimigosCriados < inimigosWave) {
       spawnTimer = 0;
 
       add(Enemy()..position = Vector2(0, 300));
+
+      inimigosCriados++;
     }
 
-    hud?.text = 'Vida: $vida   Moedas: $moedas';
+    if (children.whereType<Enemy>().isEmpty &&
+        children.whereType<Boss>().isEmpty &&
+        inimigosCriados >= inimigosWave) {
+      proximaWave();
+    }
+
+    hud?.text = 'Vida: $vida   Moedas: $moedas   Wave: $wave';
 
     if (vida <= 0) {
       fimDeJogo();
+    }
+  }
+
+  void proximaWave() {
+    wave++;
+    inimigosCriados = 0;
+
+    if (wave % 5 == 0) {
+      add(Boss()..position = Vector2(0, 280));
+
+      inimigosWave = 0;
+    } else {
+      inimigosWave += 3;
     }
   }
 
@@ -58,20 +88,6 @@ class ReinoGame extends FlameGame with TapCallbacks {
 
       add(Tower()..position = event.localPosition - Vector2(25, 25));
     }
-  }
-
-  void reiniciar() {
-    removeAll(children);
-    spawnTimer = 0;
-    moedas = 100;
-    vida = 10;
-    acabou = false;
-
-    add(Tower()..position = Vector2(100, 280));
-
-    hud = TextComponent(text: '', position: Vector2(20, 20));
-
-    add(hud!);
   }
 
   void ganharMoeda() {
@@ -92,5 +108,19 @@ class ReinoGame extends FlameGame with TapCallbacks {
     );
 
     add(gameOverText!);
+  }
+
+  void reiniciar() {
+    removeAll(children);
+
+    spawnTimer = 0;
+    moedas = 100;
+    vida = 10;
+    wave = 1;
+    inimigosCriados = 0;
+    inimigosWave = 5;
+    acabou = false;
+
+    iniciarJogo();
   }
 }
