@@ -1,21 +1,22 @@
 import 'package:flame/components.dart';
-import 'dart:ui';
 import 'reino_game.dart';
 
-class Boss extends RectangleComponent {
+class Boss extends SpriteComponent {
   int life = 20;
 
-  Boss()
-    : super(
-        size: Vector2(80, 80),
-        paint: Paint()..color = const Color(0xFF800080),
-      );
+  Boss() : super(size: Vector2(180, 180), priority: 2);
+  @override
+  Future<void> onLoad() async {
+    sprite = await Sprite.load('boss.png');
+    anchor = Anchor.center;
+    print('Boss carregado');
+  }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    position.x += 30 * dt;
+    position.x += 25 * dt;
 
     final game = findGame() as ReinoGame;
 
