@@ -1,30 +1,50 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+import 'package:flame/components.dart';
+import '../lib/game/enemy.dart';
 
-import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+class Bullet extends SpriteComponent {
+  final Enemy alvo;
+  double speed = 350; // Um pouco mais rápido para não "errar" o alvo
+  double dano = 10;
 
-import 'package:reino_defense/main.dart';
+  // Usamos o construtor super para definir as propriedades iniciais
+  Bullet({required Vector2 posicaoInicial, required this.alvo})
+    : super(
+        position: posicaoInicial,
+        size: Vector2(15, 15),
+        anchor: Anchor.center,
+      );
 
-void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  @override
+  Future<void> onLoad() async {
+    // Certifique-se que o arquivo bullet.png existe em assets/images/
+    sprite = await Sprite.load('bullet.png');
+  }
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  @override
+  void update(double dt) {
+    super.update(dt);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // MELHORIA: Verifica se o alvo ainda está ativo e montado no jogo
+    // Se o inimigo foi removido ou está em processo de remoção, a bala some
+    if (!alvo.isMounted || alvo.isRemoving) {
+      removeFromParent();
+      return;
+    }
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
-  });
+    // Cálculo de direção
+    Vector2 direcao = alvo.position - position;
+
+    // Move a bala
+    // normalized() evita erros se a distância for zero
+    if (direcao.length > 0) {
+      position.add(direcao.normalized() * speed * dt);
+    }
+
+    // Detecção de colisão por proximidade
+    // Aumentei para 15 para garantir o contato visual
+    if (position.distanceTo(alvo.position) < 15) {
+      alvo.levarDano(dano);
+      removeFromParent(); // Remove a bala após o impacto
+    }
+  }
 }

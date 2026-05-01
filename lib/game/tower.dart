@@ -1,40 +1,44 @@
 import 'package:flame/components.dart';
-import 'bullet.dart';
 
-class Tower extends SpriteComponent {
-  double timer = 0;
-  double fireRate = 1.0;
+import 'bullet.dart';
+import 'enemy.dart';
+import 'boss.dart';
+import 'reino_game.dart';
+
+class Tower extends SpriteComponent with HasGameReference<ReinoGame> {
+  double shootTimer = 0;
   int level = 1;
 
-  Tower() : super(size: Vector2(150, 150), priority: 3);
+  Tower() : super(size: Vector2(70, 70), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load('tower.png');
-    anchor = Anchor.center;
-    print('Tower carregada');
+    sprite = await game.loadSprite('tower.png');
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    timer += dt;
+    shootTimer += dt;
 
-    if (timer >= fireRate) {
-      timer = 0;
+    // 🔎 pega todos os alvos (inimigos + boss)
+    final targets = [
+      ...game.children.whereType<Enemy>(),
+      ...game.children.whereType<Boss>(),
+    ];
 
-      parent?.add(
-        Bullet()..position = Vector2(position.x + 50, position.y + 20),
-      );
+    // 🎯 se tiver alvo, atira
+    if (targets.isNotEmpty && shootTimer > 1) {
+      shootTimer = 0;
+
+      final alvo = targets.first;
+
+      game.add(Bullet(alvo)..position = position.clone());
     }
   }
 
   void upgrade() {
-    if (level < 5) {
-      level++;
-      fireRate *= 0.8;
-      size += Vector2(5, 5);
-    }
+    level++;
   }
 }

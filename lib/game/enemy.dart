@@ -1,31 +1,24 @@
 import 'package:flame/components.dart';
 import 'reino_game.dart';
 
-class Enemy extends SpriteComponent {
-  int life = 3;
-  int pontoAtual = 0;
-  double speed = 70;
+class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
+  int _waypointIndex = 0;
 
-  Enemy() : super(size: Vector2(80, 80), priority: 10);
+  double speed = 80;
+  double vida = 30;
+
+  Enemy() : super(size: Vector2(90, 90), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
-    sprite = await Sprite.load('enemy.png');
-
-    final game = findGame() as ReinoGame;
-
-    position = game.waypoints.first.clone();
-
-    anchor = Anchor.center;
+    sprite = await game.loadSprite('enemy.png'); // 👈 mudou aqui
   }
 
   @override
   void update(double dt) {
     super.update(dt);
 
-    final game = findGame() as ReinoGame;
-
-    if (life <= 0) {
+    if (vida <= 0) {
       game.ganharMoeda();
       removeFromParent();
       return;
@@ -33,15 +26,14 @@ class Enemy extends SpriteComponent {
 
     final waypoints = game.waypoints;
 
-    if (pontoAtual < waypoints.length - 1) {
-      final alvo = waypoints[pontoAtual + 1];
+    if (_waypointIndex < waypoints.length) {
+      final target = waypoints[_waypointIndex];
+      final direction = target - position;
 
-      final direcao = (alvo - position).normalized();
-
-      position += direcao * speed * dt;
-
-      if (position.distanceTo(alvo) < 10) {
-        pontoAtual++;
+      if (direction.length < 5) {
+        _waypointIndex++;
+      } else {
+        position += direction.normalized() * speed * dt;
       }
     } else {
       game.perderVida();
@@ -49,7 +41,7 @@ class Enemy extends SpriteComponent {
     }
   }
 
-  void hit() {
-    life--;
+  void levarDano(double dano) {
+    vida -= dano;
   }
 }

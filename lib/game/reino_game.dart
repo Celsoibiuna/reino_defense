@@ -1,38 +1,49 @@
-import 'package:flame/game.dart';
+import 'dart:ui';
+
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
-import 'dart:ui';
+import 'package:flame/game.dart';
 
 import 'enemy.dart';
 import 'tower.dart';
 import 'boss.dart';
 
 class ReinoGame extends FlameGame with TapCallbacks {
-  // Caminho correto dos inimigos
+  // =========================
+  // CAMINHO DOS INIMIGOS
+  // =========================
   final List<Vector2> waypoints = [
-    Vector2(520, 760),
-    Vector2(520, 660),
-    Vector2(430, 660),
-    Vector2(330, 660),
-    Vector2(300, 590),
-    Vector2(350, 520),
-    Vector2(430, 500),
-    Vector2(500, 470),
-    Vector2(500, 350),
-    Vector2(420, 330),
-    Vector2(320, 330),
-    Vector2(250, 290),
-    Vector2(260, 230),
-    Vector2(330, 210),
-    Vector2(450, 210),
-    Vector2(520, 180),
-    Vector2(520, 130),
-    Vector2(430, 120),
-    Vector2(300, 120),
-    Vector2(180, 120),
-    Vector2(80, 120),
+    Vector2(880, 780),
+    Vector2(800, 750),
+    Vector2(720, 720),
+    Vector2(700, 620),
+    Vector2(690, 560),
+    Vector2(570, 560),
+    Vector2(500, 750),
+    Vector2(480, 750),
+    Vector2(380, 680),
+    Vector2(250, 550),
+    Vector2(180, 550),
+    Vector2(150, 550),
+    Vector2(160, 450),
+    Vector2(200, 350),
+    Vector2(160, 250),
   ];
 
+  // =========================
+  // PONTOS DE TORRE
+  // =========================
+  final List<Vector2> buildSpots = [
+    Vector2(50, 500),
+    Vector2(220, 630),
+    Vector2(220, 500),
+    Vector2(420, 670),
+    Vector2(410, 250),
+  ];
+
+  // =========================
+  // VARIÁVEIS
+  // =========================
   double spawnTimer = 0;
 
   int moedas = 100;
@@ -47,39 +58,37 @@ class ReinoGame extends FlameGame with TapCallbacks {
   TextComponent? hud;
   TextComponent? gameOverText;
 
+  // =========================
+  // LOAD
+  // =========================
   @override
   Future<void> onLoad() async {
-    await add(
-      SpriteComponent()
-        ..sprite = await Sprite.load('background.png')
-        ..size = size
-        ..position = Vector2.zero()
-        ..priority = 0,
-    );
-
+    await carregarBackground();
     iniciarJogo();
   }
 
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
+  Future<void> carregarBackground() async {
+    final sprite = await loadSprite('background.png');
 
-    // Debug visual dos pontos
-    final paint = Paint()..color = const Color(0xFFFF0000);
-
-    for (final ponto in waypoints) {
-      canvas.drawCircle(Offset(ponto.x, ponto.y), 6, paint);
-    }
+    await add(
+      SpriteComponent()
+        ..sprite = sprite
+        ..size =
+            size // 🔥 ocupa tela toda
+        ..position = Vector2.zero()
+        ..priority = 0,
+    );
   }
 
   void iniciarJogo() {
-    add(Tower()..position = Vector2(100, 280));
-
     hud = TextComponent(text: '', position: Vector2(20, 20), priority: 10);
 
     add(hud!);
   }
 
+  // =========================
+  // UPDATE
+  // =========================
   @override
   void update(double dt) {
     super.update(dt);
@@ -109,19 +118,24 @@ class ReinoGame extends FlameGame with TapCallbacks {
     }
   }
 
+  // =========================
+  // WAVES
+  // =========================
   void proximaWave() {
     wave++;
     inimigosCriados = 0;
 
     if (wave % 5 == 0) {
       add(Boss()..position = waypoints.first.clone());
-
       inimigosWave = 0;
     } else {
       inimigosWave += 3;
     }
   }
 
+  // =========================
+  // TOQUE (CONSTRUIR TORRES)
+  // =========================
   @override
   void onTapUp(TapUpEvent event) {
     if (acabou) {
@@ -131,23 +145,26 @@ class ReinoGame extends FlameGame with TapCallbacks {
 
     final toque = event.localPosition;
 
-    for (final tower in children.whereType<Tower>()) {
-      if ((tower.position - toque).length < 60) {
-        if (moedas >= 40) {
-          moedas -= 40;
-          tower.upgrade();
+    for (final spot in buildSpots) {
+      if ((spot - toque).length < 30) {
+        if (!ocupado(spot) && moedas >= 50) {
+          moedas -= 50;
+          add(Tower()..position = spot.clone());
         }
         return;
       }
     }
-
-    if (moedas >= 50) {
-      moedas -= 50;
-
-      add(Tower()..position = toque - Vector2(25, 25));
-    }
   }
 
+  bool ocupado(Vector2 spot) {
+    return children.whereType<Tower>().any(
+      (t) => (t.position - spot).length < 10,
+    );
+  }
+
+  // =========================
+  // ECONOMIA
+  // =========================
   void ganharMoeda() {
     moedas += 10;
   }
@@ -156,6 +173,9 @@ class ReinoGame extends FlameGame with TapCallbacks {
     vida--;
   }
 
+  // =========================
+  // GAME OVER
+  // =========================
   void fimDeJogo() {
     acabou = true;
 
@@ -175,11 +195,27 @@ class ReinoGame extends FlameGame with TapCallbacks {
     spawnTimer = 0;
     moedas = 100;
     vida = 10;
+
     wave = 1;
     inimigosCriados = 0;
     inimigosWave = 5;
+
     acabou = false;
 
-    onLoad();
+    iniciarJogo(); // 🔥 CORRIGIDO
+  }
+
+  // =========================
+  // DEBUG (APENAS SPOTS)
+  // =========================
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+
+    final spotPaint = Paint()..color = const Color(0x5500FF00);
+
+    for (final spot in buildSpots) {
+      canvas.drawCircle(Offset(spot.x, spot.y), 25, spotPaint);
+    }
   }
 }
