@@ -1,8 +1,9 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/material.dart' hide Path;
+
+import 'barracks.dart';
 import 'enemy.dart';
 import 'tower.dart';
 import 'boss.dart';
@@ -32,15 +33,17 @@ class ReinoGame extends FlameGame with TapCallbacks {
   ];
 
   // =========================
-  // TORRES
+  // SPOTS DE CONSTRUÇÃO
   // =========================
-  final List<Vector2> buildSpots = [
+  final List<Vector2> _originalSpots = [
     Vector2(50, 490),
     Vector2(220, 630),
     Vector2(220, 500),
     Vector2(420, 650),
     Vector2(410, 250),
   ];
+
+  late List<Vector2> buildSpots;
 
   // =========================
   // VARIÁVEIS
@@ -51,7 +54,12 @@ class ReinoGame extends FlameGame with TapCallbacks {
   int wave = 1;
   int inimigosCriados = 0;
   int inimigosWave = 5;
+
   bool acabou = false;
+
+  // 🔥 alterna entre Tower e Barracks
+  bool construirBarracks = false;
+
   TextComponent? hud;
 
   // =========================
@@ -59,12 +67,14 @@ class ReinoGame extends FlameGame with TapCallbacks {
   // =========================
   @override
   Future<void> onLoad() async {
+    buildSpots = _originalSpots.map((e) => e.clone()).toList();
     await carregarBackground();
     iniciarJogo();
   }
 
   Future<void> carregarBackground() async {
     final sprite = await loadSprite('background.png');
+
     await add(
       SpriteComponent()
         ..sprite = sprite
@@ -88,20 +98,18 @@ class ReinoGame extends FlameGame with TapCallbacks {
 
     if (acabou) return;
 
-    // 1. Atualiza HUD
     hud?.text = 'Vida: $vida   Moedas: $moedas   Wave: $wave';
 
-    // 2. Lógica de Spawn
     spawnTimer += dt;
+
     if (spawnTimer > 1.5 && inimigosCriados < inimigosWave) {
       spawnTimer = 0;
-      if (waypoints.isNotEmpty) {
-        add(Enemy(tipoInimigo())..position = waypoints.first.clone());
-        inimigosCriados++;
-      }
+
+      add(Enemy(tipoInimigo())..position = waypoints.first.clone());
+
+      inimigosCriados++;
     }
 
-    // 3. Verificação de Próxima Wave
     final semInimigos =
         children.whereType<Enemy>().isEmpty &&
         children.whereType<Boss>().isEmpty;
@@ -112,34 +120,51 @@ class ReinoGame extends FlameGame with TapCallbacks {
   }
 
   // =========================
-  // WAVES E TIPOS
+  // WAVES
   // =========================
   void proximaWave() {
     wave++;
     inimigosCriados = 0;
+
     if (wave % 5 == 0) {
-      add(Boss()..position = waypoints.first.clone());
+      final isTank = wave % 10 == 0;
+
+      add(
+        Boss(isTank ? BossType.tank : BossType.normal)
+          ..position = waypoints.first.clone(),
+      );
+
       inimigosWave += 5;
     } else {
       inimigosWave += 3;
     }
   }
 
+  // =========================
+  // TIPOS DE INIMIGO
+  // =========================
   EnemyType tipoInimigo() {
     if (wave < 3) return EnemyType.normal;
-    if (wave < 6)
+
+    if (wave < 6) {
       return (inimigosCriados % 2 == 0) ? EnemyType.fast : EnemyType.normal;
-    if (wave < 9)
+    }
+
+    if (wave < 9) {
       return (inimigosCriados % 2 == 0) ? EnemyType.tank : EnemyType.fast;
+    }
+
     return EnemyType.values[inimigosCriados % EnemyType.values.length];
   }
 
   // =========================
-  // VIDA E GAME OVER
+  // VIDA
   // =========================
   void perderVida() {
     if (acabou) return;
+
     vida--;
+
     if (vida <= 0) {
       vida = 0;
       gameOver();
@@ -167,7 +192,7 @@ class ReinoGame extends FlameGame with TapCallbacks {
   }
 
   // =========================
-  // EVENTOS (TOQUE)
+  // TOQUE
   // =========================
   @override
   void onTapUp(TapUpEvent event) {
@@ -177,35 +202,45 @@ class ReinoGame extends FlameGame with TapCallbacks {
     }
 
     final toque = event.localPosition;
+
     for (final spot in buildSpots) {
       if ((spot - toque).length < 30) {
-        if (!ocupado(spot) && moedas >= 50) {
+        if (moedas >= 50) {
           moedas -= 50;
-          add(Tower()..position = spot.clone());
+
+          if (construirBarracks) {
+            // 👉 Barracks direita
+            add(Barracks(position: spot.clone() + Vector2(25, 0)));
+          } else {
+            // 👉 Torre esquerda
+            add(Tower()..position = spot.clone() + Vector2(-25, 0));
+          }
+
+          // alterna
+          construirBarracks = !construirBarracks;
         }
         return;
       }
     }
   }
 
-  bool ocupado(Vector2 spot) {
-    return children.whereType<Tower>().any(
-      (t) => (t.position - spot).length < 10,
-    );
-  }
-
   // =========================
-  // RESET E UTILITÁRIOS
+  // RESET (SEM BUG)
   // =========================
   void reiniciar() {
     removeAll(children);
+
     spawnTimer = 0;
     moedas = 100;
     vida = 10;
     wave = 1;
     inimigosCriados = 0;
     inimigosWave = 5;
+
+    buildSpots = _originalSpots.map((e) => e.clone()).toList();
+
     acabou = false;
+
     carregarBackground();
     iniciarJogo();
   }
@@ -214,10 +249,15 @@ class ReinoGame extends FlameGame with TapCallbacks {
     moedas += 10;
   }
 
+  // =========================
+  // DEBUG (SPOTS)
+  // =========================
   @override
   void render(Canvas canvas) {
     super.render(canvas);
+
     final paint = Paint()..color = const Color.fromARGB(80, 200, 255, 200);
+
     for (final spot in buildSpots) {
       canvas.drawCircle(Offset(spot.x, spot.y), 25, paint);
     }

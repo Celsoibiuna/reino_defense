@@ -1,27 +1,28 @@
 import 'package:flame/components.dart';
-import 'package:flutter/foundation.dart'; // 🔥 Necessário para o debugPrint
+import 'package:flutter/foundation.dart';
 import 'reino_game.dart';
 
-// 1. Definição dos tipos
 enum EnemyType { normal, fast, tank }
 
-// 2. Classe corrigida (HasGameReference remove o "risco" no VS Code)
 class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
   final EnemyType tipo;
   int _waypointIndex = 0;
 
-  // Variáveis late devem ser inicializadas no onLoad
+  // Atributos do inimigo
   late double speed;
   late double vida;
   late int recompensa;
 
-  // Construtor
   Enemy(this.tipo) : super(size: Vector2(50, 50), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
+    // Valores padrão de segurança (failsafe)
+    speed = 80;
+    vida = 30;
+    recompensa = 10;
+
     try {
-      // 3. Configura atributos e imagens baseados no tipo
       switch (tipo) {
         case EnemyType.normal:
           sprite = await game.loadSprite('enemy_normal.png');
@@ -37,55 +38,49 @@ class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
           break;
         case EnemyType.tank:
           try {
-            // Usamos o comando que 'recorta' apenas o primeiro ogre da imagem
-            final image = await game.images.load('boss_tank.png');
-            sprite = Sprite(
-              image,
-              srcPosition: Vector2(0, 0), // Começa no topo esquerdo
-              srcSize: Vector2(
-                256,
-                256,
-              ), // Tamanho de UM ogre na imagem (ajuste se necessário)
-            );
+            // Tentamos carregar o Boss Tank
+            sprite = await game.loadSprite('boss_tank.png');
+            // Se for a imagem única, o Flame ajusta o tamanho automaticamente.
+            // Se for a sprite sheet, você pode voltar a usar o Sprite(image, srcSize...)
           } catch (e) {
-            debugPrint("Erro crítico ao carregar boss_tank.png: $e");
-            sprite = await game.loadSprite(
-              'enemy_normal.png',
-            ); // Failsafe para não travar
+            debugPrint("Erro ao carregar boss_tank.png, usando padrão: $e");
+            sprite = await game.loadSprite('enemy_normal.png');
           }
-
-          size = Vector2(80, 80);
-          speed = 40;
-          vida = 100;
-          recompensa = 30;
+          size = Vector2(
+            70,
+            70,
+          ); // Tank é maior que o normal, mas menor que o Boss
+          speed = 45;
+          vida = 120;
+          recompensa = 35;
           break;
       }
     } catch (e) {
-      // Caso a imagem falhe, o código abaixo evita que o jogo pare na Wave 6
-      debugPrint("Erro ao carregar asset para o tipo $tipo: $e");
+      debugPrint("Erro geral no onLoad do inimigo $tipo: $e");
       sprite = await game.loadSprite('enemy_normal.png');
-      speed = 80;
-      vida = 30;
-      recompensa = 10;
     }
   }
 
   @override
   void update(double dt) {
     super.update(dt);
-    // Se o jogo acabou, o inimigo para de andar
+
     if (game.acabou) return;
-    // Como mudamos para HasGameReference, usamos 'game' em vez de 'gameRef'
+
     final waypoints = game.waypoints;
 
     if (_waypointIndex < waypoints.length) {
       Vector2 target = waypoints[_waypointIndex];
       Vector2 direction = target - position;
+      double distancia = direction.length;
 
-      // Distância de 10 para evitar que inimigos rápidos "travem"
-      if (direction.length < 10) {
+      // 🔥 AUMENTAMOS A MARGEM (de 5 para 15)
+      // Inimigos rápidos (150px/s) podem pular 5 pixels em um único frame de lag.
+      // 15 garante que ele detecte o ponto mesmo em alta velocidade.
+      if (distancia < 15) {
         _waypointIndex++;
       } else {
+        // Move usando o vetor normalizado
         position.add(direction.normalized() * speed * dt);
       }
     } else {
@@ -97,7 +92,8 @@ class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
   void levarDano(double dano) {
     vida -= dano;
     if (vida <= 0) {
-      game.moedas += recompensa;
+      // Use EXATAMENTE o nome que você definiu no ReinoGame
+      game.ganharMoeda();
       removeFromParent();
     }
   }

@@ -2,7 +2,12 @@ import 'package:flame/components.dart';
 import 'reino_game.dart';
 import 'dart:ui';
 
+// 🔥 TIPOS DE BOSS
+enum BossType { normal, tank }
+
 class Boss extends SpriteComponent with HasGameReference<ReinoGame> {
+  final BossType type;
+
   int _waypointIndex = 0;
 
   double speed = 40;
@@ -11,11 +16,27 @@ class Boss extends SpriteComponent with HasGameReference<ReinoGame> {
 
   bool morreu = false;
 
-  Boss() : super(size: Vector2(140, 140), anchor: Anchor.center);
+  Boss(this.type) : super(size: Vector2(140, 140), anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
-    sprite = await game.loadSprite('boss.png');
+    switch (type) {
+      case BossType.normal:
+        sprite = await game.loadSprite('boss.png');
+        size = Vector2(140, 140);
+        speed = 60;
+        vida = 200;
+        vidaMax = 200;
+        break;
+
+      case BossType.tank:
+        sprite = await game.loadSprite('boss_tank.png');
+        size = Vector2(180, 180);
+        speed = 30;
+        vida = 400;
+        vidaMax = 400;
+        break;
+    }
   }
 
   @override
@@ -25,18 +46,17 @@ class Boss extends SpriteComponent with HasGameReference<ReinoGame> {
     final barWidth = size.x;
     const barHeight = 10.0;
 
-    // fundo (vermelho)
     final bgPaint = Paint()..color = const Color(0xFFFF0000);
-
     canvas.drawRect(
       Rect.fromLTWH(-barWidth / 2, -size.y / 2 - 25, barWidth, barHeight),
       bgPaint,
     );
 
-    // vida atual (verde)
-    final lifePercent = (vida / vidaMax).clamp(0, 1);
-
-    final lifePaint = Paint()..color = const Color(0xFF00FF00);
+    final lifePercent = (vida / vidaMax).clamp(0.0, 1.0);
+    final lifePaint = Paint()
+      ..color = type == BossType.tank
+          ? const Color(0xFF00FFFF)
+          : const Color(0xFF00FF00);
 
     canvas.drawRect(
       Rect.fromLTWH(
@@ -53,14 +73,23 @@ class Boss extends SpriteComponent with HasGameReference<ReinoGame> {
   void update(double dt) {
     super.update(dt);
 
-    final game = findGame() as ReinoGame;
+    // 🔥 CORREÇÃO: Não use 'final game = findGame()'.
+    // Como você usa HasGameReference, basta usar a variável 'game' que já existe.
+    if (game.acabou) return;
 
-    // 🔥 MORTE
+    // MORTE
+    // MORTE DO BOSS
+    // No boss.dart (dentro do if da morte)
     if (!morreu && vida <= 0) {
       morreu = true;
 
-      game.ganharMoeda();
-      game.moedas += 90;
+      game.ganharMoeda(); // 🔥 Agora o VS Code vai reconhecer porque você criou no ReinoGame!
+
+      if (type == BossType.tank) {
+        game.moedas += 190;
+      } else {
+        game.moedas += 90;
+      }
 
       removeFromParent();
       return;
@@ -79,20 +108,33 @@ class Boss extends SpriteComponent with HasGameReference<ReinoGame> {
         position += direction.normalized() * speed * dt;
       }
     } else {
-      // chegou no castelo
+      // CHEGOU NO CASTELO
       if (!morreu) {
         morreu = true;
 
-        game.perderVida();
-        game.perderVida();
-        game.perderVida();
+        if (type == BossType.tank) {
+          // Tank tira 4 vidas
+          game.perderVida();
+          game.perderVida();
+          game.perderVida();
+          game.perderVida();
+        } else {
+          // Normal tira 3 vidas
+          game.perderVida();
+          game.perderVida();
+          game.perderVida();
+        }
       }
-
       removeFromParent();
     }
   }
 
-  void hit() {
-    vida -= 10;
+  // Método para as balas chamarem
+  void levarDano(double dano) {
+    if (type == BossType.tank) {
+      vida -= dano * 0.5; // 🔥 Tank tem resistência (recebe metade do dano)
+    } else {
+      vida -= dano;
+    }
   }
 }

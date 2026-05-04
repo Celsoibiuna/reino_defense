@@ -30,7 +30,7 @@ class Bullet extends SpriteComponent with HasGameReference<ReinoGame> {
 
     final direction = alvo.position - position;
 
-    // 🎯 gira a flecha
+    // 🎯 rotação
     angle = direction.angleToSigned(Vector2(1, 0));
 
     // ✨ rastro
@@ -46,13 +46,11 @@ class Bullet extends SpriteComponent with HasGameReference<ReinoGame> {
     if (direction.length < 10) {
       if (alvo is Enemy) {
         (alvo as Enemy).levarDano(10);
+      } else if (alvo is Boss) {
+        (alvo as Boss).levarDano(10);
       }
 
-      if (alvo is Boss) {
-        (alvo as Boss).hit();
-      }
-
-      // efeito de explosão simples
+      // explosão
       game.add(
         CircleComponent(
             position: position.clone(),

@@ -1,13 +1,14 @@
 import 'package:flame/components.dart';
-import 'dart:ui';
+import 'package:flutter/material.dart'; // Use material para ter acesso a mais recursos de cor
 
 class Impact extends CircleComponent {
   double timer = 0;
+  final double duracao = 0.3; // Definimos a duração como constante
 
   Impact(Vector2 position)
     : super(
         position: position,
-        radius: 10,
+        radius: 5, // Começa menor para o efeito de expansão ser mais visível
         anchor: Anchor.center,
         paint: Paint()..color = const Color(0xFFFFAA00),
       );
@@ -18,11 +19,16 @@ class Impact extends CircleComponent {
 
     timer += dt;
 
-    // aumenta e some
-    radius += 40 * dt;
-    paint.color = paint.color.withOpacity(1 - timer);
+    // 1. Expansão do círculo
+    radius += 100 * dt;
 
-    if (timer > 0.3) {
+    // 2. Cálculo de Opacidade Seguro
+    // clamp(0.0, 1.0) garante que o valor nunca seja negativo
+    double opacidade = (1.0 - (timer / duracao)).clamp(0.0, 1.0);
+    paint.color = paint.color.withOpacity(opacidade);
+
+    // 3. Remoção
+    if (timer >= duracao) {
       removeFromParent();
     }
   }
