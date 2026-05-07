@@ -33,7 +33,7 @@ class ReinoGame extends FlameGame with TapCallbacks {
   ];
 
   // =========================
-  // SPOTS DE CONSTRUÇÃO
+  // SPOTS
   // =========================
   final List<Vector2> _originalSpots = [
     Vector2(50, 490),
@@ -56,11 +56,14 @@ class ReinoGame extends FlameGame with TapCallbacks {
   int inimigosWave = 5;
 
   bool acabou = false;
-
-  // 🔥 alterna entre Tower e Barracks
   bool construirBarracks = false;
 
   TextComponent? hud;
+  TextComponent? botaoConstrucao;
+
+  void ganharMoeda() {
+    moedas += 10;
+  }
 
   // =========================
   // LOAD
@@ -68,6 +71,7 @@ class ReinoGame extends FlameGame with TapCallbacks {
   @override
   Future<void> onLoad() async {
     buildSpots = _originalSpots.map((e) => e.clone()).toList();
+
     await carregarBackground();
     iniciarJogo();
   }
@@ -85,8 +89,27 @@ class ReinoGame extends FlameGame with TapCallbacks {
   }
 
   void iniciarJogo() {
-    hud = TextComponent(text: '', position: Vector2(20, 20), priority: 10);
+    // HUD
+    hud = TextComponent(position: Vector2(20, 20), priority: 10);
+
     add(hud!);
+
+    // 🔥 BOTÃO BONITO
+    botaoConstrucao = TextComponent(
+      text: '🏹 TORRE',
+      position: Vector2(20, 60),
+      priority: 10,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          backgroundColor: Colors.black87, // 🔥 fundo
+        ),
+      ),
+    );
+
+    add(botaoConstrucao!);
   }
 
   // =========================
@@ -98,7 +121,10 @@ class ReinoGame extends FlameGame with TapCallbacks {
 
     if (acabou) return;
 
-    hud?.text = 'Vida: $vida   Moedas: $moedas   Wave: $wave';
+    hud?.text = '❤️ $vida   💰 $moedas   🌊 $wave';
+
+    // atualizar botão
+    botaoConstrucao?.text = construirBarracks ? '🏠 BARRACA' : '🏹 TORRE';
 
     spawnTimer += dt;
 
@@ -141,7 +167,7 @@ class ReinoGame extends FlameGame with TapCallbacks {
   }
 
   // =========================
-  // TIPOS DE INIMIGO
+  // INIMIGOS
   // =========================
   EnemyType tipoInimigo() {
     if (wave < 3) return EnemyType.normal;
@@ -196,28 +222,32 @@ class ReinoGame extends FlameGame with TapCallbacks {
   // =========================
   @override
   void onTapUp(TapUpEvent event) {
+    final toque = event.localPosition;
+
     if (acabou) {
       reiniciar();
       return;
     }
 
-    final toque = event.localPosition;
+    // 🔥 CLICOU NO BOTÃO
+    if ((toque - botaoConstrucao!.position).length < 80) {
+      construirBarracks = !construirBarracks;
+      return;
+    }
 
-    for (final spot in buildSpots) {
+    // 🔥 CONSTRUÇÃO
+    for (final spot in buildSpots.toList()) {
       if ((spot - toque).length < 30) {
         if (moedas >= 50) {
           moedas -= 50;
 
           if (construirBarracks) {
-            // 👉 Barracks direita
-            add(Barracks(position: spot.clone() + Vector2(25, 0)));
+            add(Barracks(position: spot.clone()));
           } else {
-            // 👉 Torre esquerda
-            add(Tower()..position = spot.clone() + Vector2(-25, 0));
+            add(Tower()..position = spot.clone());
           }
 
-          // alterna
-          construirBarracks = !construirBarracks;
+          buildSpots.remove(spot);
         }
         return;
       }
@@ -225,10 +255,16 @@ class ReinoGame extends FlameGame with TapCallbacks {
   }
 
   // =========================
-  // RESET (SEM BUG)
+  // RESET
   // =========================
-  void reiniciar() {
+  Future<void> reiniciar() async {
+    if (!acabou) return;
+
+    acabou = true;
+
     removeAll(children);
+
+    await Future.delayed(const Duration(milliseconds: 100));
 
     spawnTimer = 0;
     moedas = 100;
@@ -238,19 +274,16 @@ class ReinoGame extends FlameGame with TapCallbacks {
     inimigosWave = 5;
 
     buildSpots = _originalSpots.map((e) => e.clone()).toList();
+    construirBarracks = false;
+
+    await carregarBackground();
+    iniciarJogo();
 
     acabou = false;
-
-    carregarBackground();
-    iniciarJogo();
-  }
-
-  void ganharMoeda() {
-    moedas += 10;
   }
 
   // =========================
-  // DEBUG (SPOTS)
+  // DEBUG
   // =========================
   @override
   void render(Canvas canvas) {

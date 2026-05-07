@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flutter/foundation.dart';
 import 'reino_game.dart';
+import 'barbaro.dart';
 
 enum EnemyType { normal, fast, tank }
 
@@ -12,7 +13,8 @@ class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
   late double speed;
   late double vida;
   late int recompensa;
-
+  bool bloqueado = false;
+  Barbaro? bloqueador;
   Enemy(this.tipo) : super(size: Vector2(50, 50), anchor: Anchor.center);
 
   @override
@@ -81,7 +83,13 @@ class Enemy extends SpriteComponent with HasGameReference<ReinoGame> {
         _waypointIndex++;
       } else {
         // Move usando o vetor normalizado
-        position.add(direction.normalized() * speed * dt);
+        if (!bloqueado) {
+          position += direction.normalized() * speed * dt;
+        }
+        if (bloqueador != null && !bloqueador!.isMounted) {
+          bloqueado = false;
+          bloqueador = null;
+        }
       }
     } else {
       game.perderVida();

@@ -3,20 +3,19 @@ import 'reino_game.dart';
 import 'enemy.dart';
 
 class Barbaro extends SpriteComponent with HasGameReference<ReinoGame> {
-  double vida = 50;
-  double speed = 40;
+  double vida = 80;
+  double speed = 45;
 
-  double ataque = 20;
-  double cooldown = 0;
+  double ataque = 25;
+  double cooldown = 0.5;
 
   Enemy? alvo;
 
-  // 🔥 NOVO
-  final Vector2 origem;
-  final double raio;
+  Vector2 origem;
+  double raio;
 
   Barbaro({required Vector2 position, required this.origem, required this.raio})
-    : super(size: Vector2(35, 35), position: position, anchor: Anchor.center);
+    : super(size: Vector2(40, 40), position: position, anchor: Anchor.center);
 
   @override
   Future<void> onLoad() async {
@@ -29,60 +28,70 @@ class Barbaro extends SpriteComponent with HasGameReference<ReinoGame> {
 
     cooldown -= dt;
 
-    // =========================
-    // 🔥 VOLTAR PRA BASE
-    // =========================
-    if ((position - origem).length > raio) {
-      final voltar = origem - position;
-      position += voltar.normalized() * speed * dt;
-      return;
+    // pega alvo próximo
+    alvo ??= _buscarInimigoProximo();
+
+    // se morreu ou sumiu
+    if (alvo != null && !alvo!.isMounted) {
+      alvo = null;
     }
 
-    // =========================
-    // 🔥 BUSCAR ALVO (SÓ DENTRO DO RAIO)
-    // =========================
-    alvo = game.children
-        .whereType<Enemy>()
-        .where((enemy) => (enemy.position - origem).length <= raio)
-        .fold<Enemy?>(null, (prev, enemy) {
-          if (prev == null) return enemy;
-
-          return (enemy.position - position).length <
-                  (prev.position - position).length
-              ? enemy
-              : prev;
-        });
-
-    // =========================
-    // 🔥 COMPORTAMENTO
-    // =========================
-    if (alvo != null && alvo!.isMounted) {
+    if (alvo != null) {
       final direction = alvo!.position - position;
 
-      // mover até o alvo
-      if (direction.length > 20) {
+      // correr até alvo
+      if (direction.length > 25) {
         position += direction.normalized() * speed * dt;
       } else {
-        // atacar
+        // 🔥 trava inimigo
+        alvo!.bloqueado = true;
+        alvo!.bloqueador = this;
+
+        // ataque
         if (cooldown <= 0) {
           alvo!.levarDano(ataque);
           cooldown = 0.5;
         }
       }
-    } else {
-      // 🔥 SEM ALVO → VOLTA PRA BASE (IDLE)
-      final direction = origem - position;
 
-      if (direction.length > 5) {
-        position += direction.normalized() * speed * dt;
+      // se inimigo morreu libera
+      if (alvo!.vida <= 0) {
+        alvo!.bloqueado = false;
+        alvo!.bloqueador = null;
+        alvo = null;
+      }
+    } else {
+      // voltar para barraca
+      final voltar = origem - position;
+
+      if (voltar.length > 10) {
+        position += voltar.normalized() * speed * dt;
       }
     }
 
-    // =========================
-    // 🔥 MORTE
-    // =========================
     if (vida <= 0) {
+      if (alvo != null) {
+        alvo!.bloqueado = false;
+        alvo!.bloqueador = null;
+      }
+
       removeFromParent();
     }
+  }
+
+  Enemy? _buscarInimigoProximo() {
+    Enemy? maisProximo;
+    double menorDistancia = raio;
+
+    for (final enemy in game.children.whereType<Enemy>()) {
+      final dist = (enemy.position - position).length;
+
+      if (dist < menorDistancia && !enemy.bloqueado) {
+        menorDistancia = dist;
+        maisProximo = enemy;
+      }
+    }
+
+    return maisProximo;
   }
 }

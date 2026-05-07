@@ -8,10 +8,13 @@ import 'reino_game.dart';
 import 'barbaro.dart';
 
 class Barracks extends SpriteComponent with HasGameReference<ReinoGame> {
+  // Nível da barraca: 1 = sem bárbaros, 2 = libera bárbaros
+  int nivel = 1;
   double spawnTimer = 0;
 
   final double range = 120;
-  final int maxBarbaros = 3;
+  // O máximo de bárbaros depende do nível: 1 no nível 1, até 3 no nível 3+
+  int get maxBarbaros => nivel.clamp(1, 3);
 
   // 🔥 lista própria de bárbaros dessa barraca
   final List<Barbaro> meusBarbaros = [];
@@ -38,7 +41,7 @@ class Barracks extends SpriteComponent with HasGameReference<ReinoGame> {
     );
     add(OpacityEffect.fadeIn(EffectController(duration: 0.3)));
 
-    _spawnBarbaro();
+    // Não cria bárbaro no início
   }
 
   @override
@@ -54,7 +57,6 @@ class Barracks extends SpriteComponent with HasGameReference<ReinoGame> {
 
     if (spawnTimer >= 10) {
       spawnTimer = 0;
-
       if (meusBarbaros.length < maxBarbaros) {
         _spawnBarbaro();
       }
@@ -65,10 +67,18 @@ class Barracks extends SpriteComponent with HasGameReference<ReinoGame> {
   // SPAWN
   // =========================
   void _spawnBarbaro() {
-    final offset = _posicaoAleatoriaNoRange();
-
+    // Faz o bárbaro nascer na estrada (waypoint mais próximo)
+    Vector2? spotNaEstrada;
+    double menorDist = double.infinity;
+    for (final wp in game.waypoints) {
+      final dist = (wp - position).length;
+      if (dist < menorDist) {
+        menorDist = dist;
+        spotNaEstrada = wp.clone();
+      }
+    }
     final barbaro = Barbaro(
-      position: position.clone() + offset,
+      position: spotNaEstrada ?? position.clone(),
       origem: position.clone(),
       raio: range,
     );
